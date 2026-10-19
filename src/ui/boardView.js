@@ -201,6 +201,40 @@ export class BoardView {
     `;
   }
 
+  showFloatingText(element, text, type = 'damage') {
+    if (!element) return;
+    const rect = element.getBoundingClientRect();
+    const floatEl = document.createElement('div');
+    floatEl.className = `floating-number floating-${type}`;
+    floatEl.innerText = text;
+    floatEl.style.left = `${rect.left + rect.width / 2 - 20}px`;
+    floatEl.style.top = `${rect.top + rect.height / 2 - 20}px`;
+    document.body.appendChild(floatEl);
+
+    setTimeout(() => floatEl.remove(), 850);
+  }
+
+  triggerSpellEffect(targetEl, emoji = '🔥', shake = false) {
+    if (!targetEl) return;
+    const rect = targetEl.getBoundingClientRect();
+    const exp = document.createElement('div');
+    exp.className = 'spell-explosion';
+    exp.innerText = emoji;
+    exp.style.left = `${rect.left + rect.width / 2 - 30}px`;
+    exp.style.top = `${rect.top + rect.height / 2 - 30}px`;
+    document.body.appendChild(exp);
+
+    if (shake) {
+      const app = document.getElementById('app');
+      if (app) {
+        app.classList.add('shake-screen');
+        setTimeout(() => app.classList.remove('shake-screen'), 450);
+      }
+    }
+
+    setTimeout(() => exp.remove(), 500);
+  }
+
   triggerAttackAnimation(attackerEl, targetEl, animationType = 'SLASH') {
     if (!attackerEl || !targetEl) return;
 
@@ -299,11 +333,16 @@ export class BoardView {
 
         // Case 1: Resolving targeted hand card
         if (this.selectedHandCard) {
+          const card = this.selectedHandCard.card;
+          if (card.type === 'SPELL') {
+            this.triggerSpellEffect(targetEl, card.icon || '🔥', card.name.includes('Огненный'));
+          }
           const success = this.combat.playCard('PLAYER', this.selectedHandCard.index, targetId);
           if (success) {
             soundManager.playSpell();
+            this.showFloatingText(targetEl, card.effect && card.effect.amount ? `-${card.effect.amount}` : '✨', 'damage');
             this.selectedHandCard = null;
-            this.render();
+            setTimeout(() => this.render(), 300);
           }
           return;
         }
@@ -333,11 +372,13 @@ export class BoardView {
           this.triggerAttackAnimation(attackerEl, targetEl, animType);
 
           setTimeout(() => {
+            const attackerAtk = attackerMinion ? attackerMinion.attack : 0;
             const success = this.combat.attack('PLAYER', this.selectedAttacker, targetId);
             if (success) {
               soundManager.playAttack();
+              this.showFloatingText(targetEl, `-${attackerAtk}`, 'damage');
               this.selectedAttacker = null;
-              this.render();
+              setTimeout(() => this.render(), 300);
             }
           }, 200);
         }
@@ -351,10 +392,19 @@ export class BoardView {
         if (this.game.player.heroPower.type === 'TARGETED_DAMAGE') {
           alert('Выберите цель на поле боя для силы героя!');
         } else {
+          const hpType = this.game.player.heroPower.type;
+          const playerHeroEl = this.container.querySelector('.player-hero-area');
           const success = this.combat.useHeroPower('PLAYER');
           if (success) {
             soundManager.playSpell();
-            this.render();
+            if (hpType === 'ARMOR' || hpType === 'ARMOR_UP') {
+              this.triggerSpellEffect(playerHeroEl, '🛡️');
+              this.showFloatingText(playerHeroEl, '+2', 'armor');
+            } else if (hpType === 'HEAL_HERO') {
+              this.triggerSpellEffect(playerHeroEl, '✨');
+              this.showFloatingText(playerHeroEl, '+2', 'heal');
+            }
+            setTimeout(() => this.render(), 300);
           }
         }
       });

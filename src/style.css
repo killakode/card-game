@@ -487,6 +487,54 @@ body {
   100% { opacity: 0; transform: scale(1.6) rotate(45deg); }
 }
 
+/* FLOATING NUMBERS & SPELL IMPACTS */
+.floating-number {
+  position: absolute;
+  z-index: 300;
+  font-size: 2.2rem;
+  font-weight: 900;
+  pointer-events: none;
+  text-shadow: 0 0 8px #000, 2px 2px 4px #000;
+  animation: floatUp 0.85s ease-out forwards;
+}
+
+.floating-damage { color: #ff3b30; }
+.floating-heal { color: #34c759; }
+.floating-armor { color: #e0a96d; }
+
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  50% { opacity: 1; transform: translateY(-30px) scale(1.3); }
+  100% { opacity: 0; transform: translateY(-50px) scale(1); }
+}
+
+/* SCREEN SHAKE */
+.shake-screen {
+  animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+  10%, 90% { transform: translate3d(-2px, 0, 0); }
+  20%, 80% { transform: translate3d(4px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+  40%, 60% { transform: translate3d(8px, 0, 0); }
+}
+
+/* SPELL PARTICLES & OVERLAYS */
+.spell-explosion {
+  position: absolute;
+  z-index: 250;
+  pointer-events: none;
+  font-size: 4rem;
+  animation: explode 0.5s ease-out forwards;
+}
+
+@keyframes explode {
+  0% { opacity: 0; transform: scale(0.2); }
+  50% { opacity: 1; transform: scale(1.5); }
+  100% { opacity: 0; transform: scale(2); }
+}
+
 /* --- GAME LOG --- */
 .game-log-panel {
   position: absolute;
