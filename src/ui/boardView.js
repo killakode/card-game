@@ -1,6 +1,6 @@
 /**
  * Interactive Game Board UI View
- * Render hand, board, mana crystals, hero stats, combat targeting arrows, and game log.
+ * Render hand, board, mana crystals, hero stats, combat targeting arrows, animations, tooltips, and game log.
  */
 
 import { KEYWORDS } from '../engine/cards.js';
@@ -20,7 +20,7 @@ export class BoardView {
 
   render() {
     this.container.innerHTML = `
-      <div class="game-board-container">
+      <div class="game-board-container" id="board-container">
         <!-- TOP: OPPONENT HERO & HAND -->
         <div class="opponent-section">
           <div class="opponent-hand" id="opponent-hand">
@@ -34,8 +34,12 @@ export class BoardView {
                 ${this.game.opponent.armor > 0 ? `<span class="hero-armor">🛡️ ${this.game.opponent.armor}</span>` : ''}
               </div>
             </div>
-            <div class="hero-power-btn" id="opp-hero-power">
+            <div class="hero-power-btn has-tooltip" id="opp-hero-power">
               ${this.game.opponent.heroPower.name} (${this.game.opponent.heroPower.cost})
+              <div class="tooltip-box">
+                <header>${this.game.opponent.heroPower.name}</header>
+                <p>${this.game.opponent.heroPower.description}</p>
+              </div>
             </div>
             <div class="mana-container">
               Мана: ${this.game.opponent.mana}/${this.game.opponent.maxMana}
@@ -68,8 +72,12 @@ export class BoardView {
                 ${this.game.player.armor > 0 ? `<span class="hero-armor">🛡️ ${this.game.player.armor}</span>` : ''}
               </div>
             </div>
-            <button class="hero-power-btn ${this.game.player.heroPower.usedThisTurn || this.game.player.mana < this.game.player.heroPower.cost ? 'disabled' : ''}" id="btn-player-hero-power">
+            <button class="hero-power-btn has-tooltip ${this.game.player.heroPower.usedThisTurn || this.game.player.mana < this.game.player.heroPower.cost ? 'disabled' : ''}" id="btn-player-hero-power">
               ⚡ ${this.game.player.heroPower.name} (${this.game.player.heroPower.cost})
+              <div class="tooltip-box">
+                <header>${this.game.player.heroPower.name} (${this.game.player.heroPower.cost} маны)</header>
+                <p>${this.game.player.heroPower.description}</p>
+              </div>
             </button>
             <div class="mana-container">
               Мана: ${this.renderManaCrystals(this.game.player.mana, this.game.player.maxMana)}
@@ -108,7 +116,7 @@ export class BoardView {
       const isSelected = this.selectedHandCard && this.selectedHandCard.index === index;
 
       return `
-        <div class="card-in-hand ${isPlayable ? 'playable' : ''} ${isSelected ? 'selected' : ''}" data-hand-index="${index}">
+        <div class="card-in-hand has-tooltip ${isPlayable ? 'playable' : ''} ${isSelected ? 'selected' : ''}" data-hand-index="${index}">
           <div class="card-header">
             <span class="card-cost">${card.cost}</span>
             <span class="card-title">${card.name}</span>
@@ -121,6 +129,12 @@ export class BoardView {
               <span class="card-health">❤️ ${card.health}</span>
             </div>
           ` : '<div class="card-stats"><span class="card-type-spell">🔮 Заклинание</span></div>'}
+
+          <div class="tooltip-box">
+            <header>${card.name}</header>
+            <p>${card.description}</p>
+            ${card.keywords && card.keywords.length > 0 ? `<p><em>Ключевые слова: ${card.keywords.join(', ')}</em></p>` : ''}
+          </div>
         </div>
       `;
     }).join('');
@@ -128,7 +142,7 @@ export class BoardView {
 
   renderBoardMinions(board, owner) {
     if (board.length === 0) {
-      return `<div class="empty-board-msg">${owner === 'PLAYER' ? 'Нажмите на карту в руке, чтобы разыграть сущестaво' : 'Поле противника пусто'}</div>`;
+      return `<div class="empty-board-msg">${owner === 'PLAYER' ? 'Нажмите на карту в руке, чтобы разыграть существо' : 'Поле противника пусто'}</div>`;
     }
 
     return board.map(minion => {
@@ -138,13 +152,20 @@ export class BoardView {
       const isAttacker = this.selectedAttacker === minion.instanceId;
 
       return `
-        <div class="board-minion ${isTaunt ? 'taunt' : ''} ${isDivineShield ? 'divine-shield' : ''} ${canAttack ? 'can-attack' : ''} ${isAttacker ? 'selected-attacker' : ''}"
+        <div class="board-minion has-tooltip ${isTaunt ? 'taunt' : ''} ${isDivineShield ? 'divine-shield' : ''} ${canAttack ? 'can-attack' : ''} ${isAttacker ? 'selected-attacker' : ''}"
              data-instance-id="${minion.instanceId}" data-owner="${owner}">
           <div class="minion-icon">${minion.icon || '👾'}</div>
           <div class="minion-name">${minion.name}</div>
           <div class="minion-stats">
             <span class="minion-attack">⚔️ ${minion.attack}</span>
             <span class="minion-health">❤️ ${minion.health}</span>
+          </div>
+
+          <div class="tooltip-box">
+            <header>${minion.name}</header>
+            <p>Здоровье: ${minion.health}/${minion.maxHealth || minion.health}</p>
+            <p>Атака: ${minion.attack}</p>
+            ${minion.keywords && minion.keywords.length > 0 ? `<p><strong>Свойства: ${minion.keywords.join(', ')}</strong></p>` : ''}
           </div>
         </div>
       `;
@@ -178,6 +199,41 @@ export class BoardView {
         </div>
       </div>
     `;
+  }
+
+  triggerAttackAnimation(attackerEl, targetEl, animationType = 'SLASH') {
+    if (!attackerEl || !targetEl) return;
+
+    const attackerRect = attackerEl.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+
+    if (animationType === 'ARROW') {
+      const arrow = document.createElement('div');
+      arrow.className = 'anim-projectile';
+      arrow.innerText = '🏹';
+      arrow.style.left = `${attackerRect.left + attackerRect.width / 2}px`;
+      arrow.style.top = `${attackerRect.top + attackerRect.height / 2}px`;
+      document.body.appendChild(arrow);
+
+      setTimeout(() => {
+        arrow.style.left = `${targetRect.left + targetRect.width / 2}px`;
+        arrow.style.top = `${targetRect.top + targetRect.height / 2}px`;
+      }, 50);
+
+      setTimeout(() => arrow.remove(), 400);
+    } else if (animationType === 'RAMMING') {
+      attackerEl.classList.add('anim-ramming');
+      setTimeout(() => attackerEl.classList.remove('anim-ramming'), 400);
+    } else {
+      const slash = document.createElement('div');
+      slash.className = 'anim-slash';
+      slash.innerText = '⚔️';
+      slash.style.left = `${targetRect.left + targetRect.width / 4}px`;
+      slash.style.top = `${targetRect.top + targetRect.height / 4}px`;
+      document.body.appendChild(slash);
+
+      setTimeout(() => slash.remove(), 450);
+    }
   }
 
   attachEvents() {
@@ -264,12 +320,26 @@ export class BoardView {
 
         // Case 3: Executing attack on opponent target
         if (this.selectedAttacker && targetId) {
-          const success = this.combat.attack('PLAYER', this.selectedAttacker, targetId);
-          if (success) {
-            soundManager.playAttack();
-            this.selectedAttacker = null;
-            this.render();
+          const attackerMinion = this.game.player.board.find(m => m.instanceId === this.selectedAttacker);
+          const attackerEl = this.container.querySelector(`[data-instance-id="${this.selectedAttacker}"]`);
+
+          let animType = 'SLASH';
+          if (attackerMinion && (attackerMinion.id.includes('archer') || attackerMinion.id.includes('rifleman'))) {
+            animType = 'ARROW';
+          } else if (attackerMinion && (attackerMinion.id.includes('boar') || attackerMinion.id.includes('wolfrider'))) {
+            animType = 'RAMMING';
           }
+
+          this.triggerAttackAnimation(attackerEl, targetEl, animType);
+
+          setTimeout(() => {
+            const success = this.combat.attack('PLAYER', this.selectedAttacker, targetId);
+            if (success) {
+              soundManager.playAttack();
+              this.selectedAttacker = null;
+              this.render();
+            }
+          }, 200);
         }
       });
     });
